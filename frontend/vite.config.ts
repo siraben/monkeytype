@@ -328,6 +328,16 @@ export default defineConfig(({ mode }): UserConfig => {
   const env = loadEnv(mode, process.cwd(), "");
   const useSentry = env["SENTRY"] !== undefined;
   const isDevelopment = mode !== "production";
+  const rawAllowedHosts = env["SERVER_ALLOWED_HOSTS"];
+  const allowedHosts =
+    rawAllowedHosts === undefined
+      ? undefined
+      : rawAllowedHosts === "*" || rawAllowedHosts === "true"
+        ? true
+        : rawAllowedHosts
+            .split(",")
+            .map((it) => it.trim())
+            .filter((it) => it.length > 0);
 
   if (!isDevelopment) {
     if (env["RECAPTCHA_SITE_KEY"] === undefined) {
@@ -346,6 +356,7 @@ export default defineConfig(({ mode }): UserConfig => {
       open: env["SERVER_OPEN"] !== "false",
       port: 3000,
       host: env["BACKEND_URL"] !== undefined,
+      allowedHosts,
       watch: {
         //we rebuild the whole contracts package when a file changes
         //so we only want to watch one file
