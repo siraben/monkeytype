@@ -4,6 +4,7 @@ import { LayoutObject } from "@monkeytype/schemas/layouts";
 import { toHex } from "./strings";
 import { languageHashes } from "virtual:language-hashes";
 import { isDevEnvironment } from "./misc";
+import { withBasePath } from "./base-path";
 
 //pin implementation
 const fetch = window.fetch;
@@ -18,7 +19,8 @@ const cryptoSubtle = window.crypto.subtle;
 async function fetchJson<T>(url: string): Promise<T> {
   try {
     if (!url) throw new Error("No URL");
-    const res = await fetch(url);
+    const finalUrl = withBasePath(url);
+    const res = await fetch(finalUrl);
     if (res.ok) {
       if (!res.headers.get("content-type")?.startsWith("application/json")) {
         throw new Error("Content is not JSON");

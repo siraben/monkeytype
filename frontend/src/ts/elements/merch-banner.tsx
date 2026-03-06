@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { addBanner } from "../stores/banners";
+import { withBasePath } from "../utils/base-path";
 import { LocalStorageWithSchema } from "../utils/local-storage-with-schema";
 
 const closed = new LocalStorageWithSchema({
@@ -22,7 +23,7 @@ export function showIfNotClosedBefore(): void {
           </a>
         </>
       ),
-      imagePath: "/images/merch3.png",
+      imagePath: withBasePath("/images/merch3.png"),
       onClose: () => {
         closed.set(true);
       },

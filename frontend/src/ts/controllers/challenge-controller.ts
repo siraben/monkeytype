@@ -26,6 +26,7 @@ import { areUnsortedArraysEqual } from "../utils/arrays";
 import { tryCatch } from "@monkeytype/util/trycatch";
 import { Challenge } from "@monkeytype/schemas/challenges";
 import { qs } from "../utils/dom";
+import { withBasePath } from "../utils/base-path";
 
 let challengeLoading = false;
 
@@ -283,7 +284,7 @@ export async function setup(challengeName: string): Promise<boolean> {
     } else if (challenge.type === "script") {
       showLoaderBar();
       const response = await fetch(
-        "/challenges/" + (challenge.parameters[0] as string),
+        withBasePath("/challenges/" + (challenge.parameters[0] as string)),
       );
       hideLoaderBar();
       if (response.status !== 200) {

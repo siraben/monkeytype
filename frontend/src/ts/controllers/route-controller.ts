@@ -7,6 +7,7 @@ import * as TestState from "../test/test-state";
 import { showNoticeNotification } from "../stores/notifications";
 import * as NavigationEvent from "../observables/navigation-event";
 import * as AuthEvent from "../observables/auth-event";
+import { stripBasePath, withBasePath } from "../utils/base-path";
 
 //source: https://www.youtube.com/watch?v=OstALBk-jTc
 // https://www.youtube.com/watch?v=OstALBk-jTc
@@ -155,6 +156,35 @@ const routes: Route[] = [
   },
 ];
 
+function normalizeNavigationUrl(rawUrl: string): string {
+  const target = new URL(rawUrl, window.location.origin);
+  const normalizedPath =
+    withBasePath(target.pathname).replace(/\/$/, "") || "/";
+  return `${normalizedPath}${target.search}${target.hash}`;
+}
+
+function patchInternalAnchorHrefs(): void {
+  document.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((a) => {
+    const href = a.getAttribute("href");
+    if (href === null || href.startsWith("//")) return;
+
+    if (href.startsWith("/")) {
+      a.setAttribute("href", withBasePath(href));
+      return;
+    }
+
+    if (href.startsWith("http://") || href.startsWith("https://")) {
+      const parsed = new URL(href);
+      if (parsed.origin === window.location.origin) {
+        a.setAttribute(
+          "href",
+          withBasePath(`${parsed.pathname}${parsed.search}${parsed.hash}`),
+        );
+      }
+    }
+  });
+}
+
 export async function navigate(
   url = window.location.pathname +
     window.location.search +
@@ -190,18 +220,14 @@ export async function navigate(
     return;
   }
 
-  url = url.replace(/\/$/, "");
-  if (url === "") url = "/";
+  const normalizedUrl = normalizeNavigationUrl(url);
 
   // only push to history if we're navigating to a different URL
-  const currentUrl = new URL(window.location.href);
-  const targetUrl = new URL(url, window.location.origin);
+  const currentUrl =
+    window.location.pathname + window.location.search + window.location.hash;
 
-  if (
-    currentUrl.pathname + currentUrl.search + currentUrl.hash !==
-    targetUrl.pathname + targetUrl.search + targetUrl.hash
-  ) {
-    history.pushState(null, "", url);
+  if (currentUrl !== normalizedUrl) {
+    history.pushState(null, "", normalizedUrl);
   }
 
   await router(options);
@@ -210,10 +236,11 @@ export async function navigate(
 async function router(
   options = {} as NavigationEvent.NavigateOptions,
 ): Promise<void> {
+  const currentPath = stripBasePath(location.pathname);
   const matches = routes.map((r) => {
     return {
       route: r,
-      result: location.pathname.match(pathToRegex(r.path)),
+      result: currentPath.match(pathToRegex(r.path)),
     };
   });
 
@@ -229,10 +256,12 @@ async function router(
         force: true,
       },
     );
+    patchInternalAnchorHrefs();
     return;
   }
 
   await match.route.load(getParams(match), options);
+  patchInternalAnchorHrefs();
 }
 
 window.addEventListener("popstate", () => {
@@ -240,9 +269,14 @@ window.addEventListener("popstate", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  patchInternalAnchorHrefs();
+
   document.body.addEventListener("click", (e) => {
-    const target = e?.target as HTMLLinkElement;
-    if (target.matches("[router-link]") && target?.href) {
+    const target = (e.target as HTMLElement | null)?.closest(
+      "a[router-link]",
+    ) as HTMLAnchorElement | null;
+
+    if (target !== null && target.href !== "") {
       e.preventDefault();
       void navigate(target.href);
     }

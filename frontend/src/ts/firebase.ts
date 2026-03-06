@@ -51,22 +51,57 @@ let readyCallback: ReadyCallback | undefined;
 const { promise: authPromise, resolve: resolveAuthPromise } =
   promiseWithResolvers();
 
-export async function init(callback: ReadyCallback): Promise<void> {
-  try {
-    let firebaseConfig: FirebaseOptions | null;
+function isPlaceholder(value: string | undefined): boolean {
+  if (value === undefined) return false;
+  return /^#+FIREBASE_.*#+$/.test(value.trim());
+}
 
-    const constants = import.meta.glob("./constants/firebase-config.ts");
-    const loader = constants["./constants/firebase-config.ts"];
-    if (loader) {
-      firebaseConfig = ((await loader()) as { firebaseConfig: FirebaseOptions })
-        .firebaseConfig;
-    } else {
-      throw new Error(
-        "No config file found. Make sure frontend/src/ts/constants/firebase-config.ts exists",
-      );
-    }
+function hasValidFirebaseConfig(
+  firebaseConfig: FirebaseOptions | null,
+): firebaseConfig is FirebaseOptions {
+  if (firebaseConfig === null) return false;
+
+  const requiredValues = [
+    firebaseConfig.apiKey,
+    firebaseConfig.authDomain,
+    firebaseConfig.projectId,
+    firebaseConfig.appId,
+  ];
+
+  return requiredValues.every((value) => {
+    if (value === undefined) return false;
+    const trimmed = value.trim();
+    return trimmed !== "" && !isPlaceholder(trimmed);
+  });
+}
+
+async function loadFirebaseConfig(): Promise<FirebaseOptions | null> {
+  const constants = import.meta.glob("./constants/firebase-config.ts");
+  const loader = constants["./constants/firebase-config.ts"];
+
+  if (loader === undefined) return null;
+
+  return ((await loader()) as { firebaseConfig: FirebaseOptions })
+    .firebaseConfig;
+}
+
+export async function init(callback: ReadyCallback): Promise<void> {
+  let firebaseWasConfigured = false;
+
+  try {
+    const firebaseConfig = await loadFirebaseConfig();
 
     readyCallback = callback;
+
+    if (!hasValidFirebaseConfig(firebaseConfig)) {
+      app = undefined;
+      Auth = undefined;
+      await callback(false, null);
+      setUserId(null);
+      return;
+    }
+
+    firebaseWasConfigured = true;
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     Auth = getAuth(app);
 
@@ -86,7 +121,7 @@ export async function init(callback: ReadyCallback): Promise<void> {
     console.error("Firebase failed to initialize", e);
     await callback(false, null);
     setUserId(null);
-    if (isDevEnvironment()) {
+    if (isDevEnvironment() && firebaseWasConfigured) {
       addBanner({
         level: "notice",
         text: "Dev Info: Firebase failed to initialize",
