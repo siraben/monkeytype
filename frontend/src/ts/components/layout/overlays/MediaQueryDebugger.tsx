@@ -3,9 +3,18 @@ import { JSXElement, Match, Show, Switch } from "solid-js";
 import { bp } from "../../../signals/breakpoints";
 import { isDevEnvironment } from "../../../utils/misc";
 
+function shouldShowMediaQueryDebugger(): boolean {
+  if (!isDevEnvironment()) return false;
+
+  const debugParam = new URLSearchParams(window.location.search).get("mqdebug");
+  if (debugParam === "1") return true;
+
+  return window.localStorage.getItem("mqdebug") === "1";
+}
+
 export function MediaQueryDebugger(): JSXElement {
   return (
-    <Show when={isDevEnvironment()}>
+    <Show when={shouldShowMediaQueryDebugger()}>
       <div class="fixed top-2 z-999999999999999 flex flex-col gap-2 font-mono text-xs text-text">
         <div class="flex w-min rounded-r bg-sub-alt px-2 py-1">
           <div class="mr-2">OLD</div>
