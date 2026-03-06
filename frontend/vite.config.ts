@@ -339,6 +339,12 @@ export default defineConfig(({ mode }): UserConfig => {
             .map((it) => it.trim())
             .filter((it) => it.length > 0);
 
+  const rawBasePath = env["BASE_PATH"];
+  const basePath =
+    rawBasePath === undefined || rawBasePath.trim() === ""
+      ? "/"
+      : `/${rawBasePath.replace(/^\/+|\/+$/g, "")}/`;
+
   if (!isDevelopment) {
     if (env["RECAPTCHA_SITE_KEY"] === undefined) {
       throw new Error(`${mode}: RECAPTCHA_SITE_KEY is not defined`);
@@ -349,6 +355,7 @@ export default defineConfig(({ mode }): UserConfig => {
   }
 
   return {
+    base: basePath,
     plugins: getPlugins({ isDevelopment, useSentry: useSentry, env }),
     build: getBuildOptions({ enableSourceMaps: useSentry }),
     css: getCssOptions({ isDevelopment }),
